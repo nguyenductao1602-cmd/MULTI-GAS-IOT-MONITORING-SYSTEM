@@ -1,0 +1,90 @@
+#include <Wire.h>
+#include <Adafruit_AHTX0.h>
+#include <Adafruit_BMP280.h>
+
+// Cấu hình chân I2C theo yêu cầu
+#define I2C_SDA 36
+#define I2C_SCL 38
+
+// Khởi tạo đối tượng cảm biến
+Adafruit_AHTX0 aht;
+Adafruit_BMP280 bmp;
+
+void setup() {
+  // Khởi tạo Serial (đã được ánh xạ ra cổng USB COM15 nhờ Hardware CDC)
+  Serial.begin(115200);
+  delay(2000); // Chờ máy tính nhận diện cổng USB
+
+  Serial.println("\n--- KHOI DONG DOC CAM BIEN AHT20 + BMP280 ---");
+
+  // Khởi tạo I2C với chân tùy chỉnh
+  Wire.begin(I2C_SDA, I2C_SCL);
+
+  // 1. Khởi tạo AHT20 (Địa chỉ mặc định là 0x38)
+  if (!aht.begin(&Wire)) {
+    Serial.println("Loi: Khong tim thay cam bien AHT20! Kiem tra lai day noi.");
+  } else {
+    Serial.println("Da ket noi thanh cong AHT20.");
+  }
+
+   // 2. Khởi tạo BMP280 (Địa chỉ thường là 0x76 hoặc 0x77)
+  // Thử địa chỉ 0x76 trước
+  if (!bmp.begin(0x76)) {  // <-- Đã xóa &Wire
+    Serial.println("Loi: Khong tim thay BMP280 tai dia chi 0x76. Thu dia chi 0x77...");
+    // Nếu 0x76 thất bại, thử 0x77
+    if (!bmp.begin(0x77)) { // <-- Đã xóa &Wire
+      Serial.println("Loi: Khong tim thay BMP280 tai ca 0x76 va 0x77!");
+    } else {
+      Serial.println("Da ket noi thanh cong BMP280 (0x77).");
+    }
+  } else {
+    Serial.println("Da ket noi thanh cong BMP280 (0x76).");
+  }
+
+  // Cấu hình chế độ đo cho BMP280 (Tùy chọn, giúp đọc ổn định hơn)
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                  Adafruit_BMP280::SAMPLING_X2,  // Nhiệt độ
+                  Adafruit_BMP280::SAMPLING_X16, // Áp suất
+                  Adafruit_BMP280::FILTER_X16,
+                  Adafruit_BMP280::STANDBY_MS_500);
+                  
+  Serial.println("--- BAT DAU DOC DU LIEU ---");
+}
+
+void loop() {
+  // --- Đọc dữ liệu từ AHT20 ---
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp); // Lấy dữ liệu vào biến
+
+  // --- Đọc dữ liệu từ BMP280 ---
+  float bmp_temp = bmp.readTemperature();
+  float bmp_pressure = bmp.readPressure() / 100.0F; // Đổi sang hPa
+  float bmp_altitude = bmp.readAltitude(1013.25);   // Tính độ cao (mực nước biển chuẩn 1013.25 hPa)
+
+  // --- In ra Serial Monitor ---
+  Serial.println("----------------------------------------");
+  
+  // AHT20
+  Serial.print("AHT20 - Nhiet do: ");
+  Serial.print(temp.temperature);
+  Serial.println(" *C");
+  
+  Serial.print("AHT20 - Do am:    ");
+  Serial.print(humidity.relative_humidity);
+  Serial.println(" %");
+
+  // BMP280
+  Serial.print("BMP280 - Nhiet do: ");
+  Serial.print(bmp_temp);
+  Serial.println(" *C");
+  
+  Serial.print("BMP280 - Ap suat:  ");
+  Serial.print(bmp_pressure);
+  Serial.println(" hPa");
+  
+  Serial.print("BMP280 - Do cao:   ");
+  Serial.print(bmp_altitude);
+  Serial.println(" m");
+
+  delay(2000); // Đọc lại sau mỗi 2 giây
+}
