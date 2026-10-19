@@ -1,0 +1,52 @@
+#include <Arduino.h>
+#line 1 "D:\\All_My_Data\\Arduino\\A_Dat_CO2\\kiem_tra_cam_bien\\kiem_tra_cam_bien.ino"
+#include <driver/gpio.h>
+#include "MenuSerial.h"
+
+TwoWire I2C_BUONG_KHI(1);
+HardwareSerial UART_KHI(1);
+NhapSerial NHAP;
+GiaoThuc485 RS485(UART_KHI, NHAP);
+KiemTra TEST(I2C_BUONG_KHI, RS485, NHAP);
+MenuSerial MENU(NHAP, RS485, TEST);
+bool serialDaMo = false;
+
+#line 12 "D:\\All_My_Data\\Arduino\\A_Dat_CO2\\kiem_tra_cam_bien\\kiem_tra_cam_bien.ino"
+void setup();
+#line 32 "D:\\All_My_Data\\Arduino\\A_Dat_CO2\\kiem_tra_cam_bien\\kiem_tra_cam_bien.ino"
+void loop();
+#line 12 "D:\\All_My_Data\\Arduino\\A_Dat_CO2\\kiem_tra_cam_bien\\kiem_tra_cam_bien.ino"
+void setup() {
+  // Nap muc tat truoc khi doi GPIO thanh OUTPUT. Khong co lenh bat bom.
+  for (int i = 0; i < 3; ++i) {
+    gpio_set_level((gpio_num_t)CHAN_RELAY[i], RELAY_OFF);
+    pinMode(CHAN_RELAY[i], OUTPUT);
+    digitalWrite(CHAN_RELAY[i], RELAY_OFF);
+  }
+  Serial.begin(115200);
+  uint32_t start = millis();
+  while (!Serial && (uint32_t)(millis() - start) < 2000) delay(1);
+  RS485.khoiDong();
+  TEST.khoiDong();
+  Serial.println("ESP32-S3 / KIEM TRA CAM BIEN VA DOI DIA CHI");
+  Serial.printf("I2C: MOI_TRUONG=%s, BUONG_KHI=%s | UART1=%s\n",
+                TEST.busMoiTruongOK ? "init OK" : "LOI", TEST.busBuongKhiOK ? "init OK" : "LOI",
+                RS485.sanSang ? "init OK" : "LOI");
+  MENU.hienMenu();
+  serialDaMo = (bool)Serial;
+}
+
+void loop() {
+  // Mo lai Serial Monitor se hien lai menu, tranh bo lo huong dan luc boot.
+  bool serialDangMo = (bool)Serial;
+  if (serialDangMo && !serialDaMo) MENU.hienMenu();
+  serialDaMo = serialDangMo;
+  if (NHAP.daThoat) MENU.thoat();
+  char line[48];
+  if (NHAP.docDong(line)) MENU.xuLy(line);
+  if (NHAP.daThoat) MENU.thoat();
+  MENU.capNhat();
+  if (NHAP.daThoat) MENU.thoat();
+  delay(1);
+}
+
